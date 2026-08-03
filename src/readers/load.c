@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "reader.h"
+#include "log.h"
 
 /**
  * @brief Read <proc_base>/loadavg and emit the 1/5/15-minute load averages.
@@ -22,6 +23,7 @@ static int load_read(const char *proc_base, metric_emit_fn emit, void *ud)
 
     FILE *f = fopen(path, "r");
     if (!f) {
+        log_errno("load", path);
         return -1;
     }
 
@@ -30,6 +32,7 @@ static int load_read(const char *proc_base, metric_emit_fn emit, void *ud)
     fclose(f);
 
     if (n != 3) {
+        log_err("load", "%s: expected 3 fields, got %d", path, n);
         return -1;
     }
 

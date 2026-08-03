@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "reader.h"
+#include "log.h"
 
 /**
  * @brief Read <proc_base>/meminfo and emit used/free swap, in bytes.
@@ -28,6 +29,7 @@ static int swap_read(const char *proc_base, metric_emit_fn emit, void *ud)
 
     FILE *f = fopen(path, "r");
     if (!f) {
+        log_errno("swap", path);
         return -1;
     }
 
@@ -46,6 +48,7 @@ static int swap_read(const char *proc_base, metric_emit_fn emit, void *ud)
     fclose(f);
 
     if (swap_total <= 0) {
+        log_err("swap", "%s: SwapTotal missing or non-positive", path);
         return -1;
     }
 

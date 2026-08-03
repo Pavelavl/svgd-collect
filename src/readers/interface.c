@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "reader.h"
+#include "log.h"
 
 /**
  * @brief Read <proc_base>/net/dev and emit rx/tx counters per interface.
@@ -34,6 +35,7 @@ static int interface_read(const char *proc_base, metric_emit_fn emit, void *ud)
 
     FILE *f = fopen(path, "r");
     if (!f) {
+        log_errno("interface", path);
         return -1;
     }
 

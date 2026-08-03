@@ -4,6 +4,7 @@
 #include <regex.h>
 
 #include "reader.h"
+#include "log.h"
 
 /**
  * @brief Read <proc_base>/diskstats and emit per-disk ops/octets/time counters.
@@ -38,6 +39,7 @@ static int disk_read(const char *proc_base, metric_emit_fn emit, void *ud)
 
     FILE *f = fopen(path, "r");
     if (!f) {
+        log_errno("disk", path);
         return -1;
     }
 
@@ -49,6 +51,7 @@ static int disk_read(const char *proc_base, metric_emit_fn emit, void *ud)
         if (regcomp(&re,
                     "^(sd[a-z]+|nvme[0-9]+n[0-9]+|vd[a-z]+|mmcblk[0-9]+|xvd[a-z]+|dm-[0-9]+|md[0-9]+|loop[0-9]+|sr[0-9]+)$",
                     REG_EXTENDED | REG_NOSUB) != 0) {
+            log_err("disk", "regcomp of device-name filter failed");
             fclose(f);
             return -1;
         }

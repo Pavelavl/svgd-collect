@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "reader.h"
+#include "log.h"
 
 /** Max distinct process names aggregated in one sample. */
 #define MAX_COMMS 256
@@ -99,6 +100,7 @@ static int processes_read(const char *proc_base, metric_emit_fn emit, void *ud)
 {
     DIR *d = opendir(proc_base);
     if (!d) {
+        log_errno("processes", proc_base);
         return -1;
     }
 

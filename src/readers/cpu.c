@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "reader.h"
+#include "log.h"
 
 /** Previous-sample state (-1 = no previous sample yet). */
 static long prev_busy = -1;
@@ -27,6 +28,7 @@ static int cpu_read(const char *proc_base, metric_emit_fn emit, void *ud)
 
     FILE *f = fopen(path, "r");
     if (!f) {
+        log_errno("cpu", path);
         return -1;
     }
 
@@ -50,6 +52,7 @@ static int cpu_read(const char *proc_base, metric_emit_fn emit, void *ud)
     fclose(f);
 
     if (!found) {
+        log_err("cpu", "%s: no aggregate 'cpu ' line found", path);
         return -1;
     }
 

@@ -4,6 +4,7 @@
 #include <sys/statvfs.h>
 
 #include "reader.h"
+#include "log.h"
 
 /**
  * @brief Filesystem types to ignore (pseudo / non-disk filesystems).
@@ -86,6 +87,7 @@ static int df_read(const char *proc_base, metric_emit_fn emit, void *ud)
 
     FILE *f = fopen(path, "r");
     if (!f) {
+        log_errno("df", path);
         return -1;
     }
 

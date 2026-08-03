@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "reader.h"
+#include "log.h"
 
 /**
  * @brief Read <proc_base>/meminfo and emit used/cached/buffered memory %.
@@ -28,6 +29,7 @@ static int memory_read(const char *proc_base, metric_emit_fn emit, void *ud)
 
     FILE *f = fopen(path, "r");
     if (!f) {
+        log_errno("memory", path);
         return -1;
     }
 
@@ -50,6 +52,7 @@ static int memory_read(const char *proc_base, metric_emit_fn emit, void *ud)
     fclose(f);
 
     if (mem_total <= 0) {
+        log_err("memory", "%s: MemTotal missing or non-positive", path);
         return -1;
     }
 

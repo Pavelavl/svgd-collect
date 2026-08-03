@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "reader.h"
+#include "log.h"
 
 /**
  * @brief Read <proc_base>/uptime and emit system uptime in seconds.
@@ -22,6 +23,7 @@ static int uptime_read(const char *proc_base, metric_emit_fn emit, void *ud)
 
     FILE *f = fopen(path, "r");
     if (!f) {
+        log_errno("uptime", path);
         return -1;
     }
 
@@ -30,6 +32,7 @@ static int uptime_read(const char *proc_base, metric_emit_fn emit, void *ud)
     fclose(f);
 
     if (n != 1) {
+        log_err("uptime", "%s: cannot parse uptime seconds", path);
         return -1;
     }
 

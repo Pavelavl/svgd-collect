@@ -1,0 +1,8 @@
+{
+  "interval": 10,
+  "datadir": "/tmp/collect-test",
+  "hostname": "web1",
+  "rrdcached_addr": "unix:/run/rrdcached.sock",
+  "readers": ["cpu", "memory"],
+  "options": { "ignored": true }
+}

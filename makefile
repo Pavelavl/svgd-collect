@@ -19,7 +19,7 @@ src/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 src/readers/%.o: src/readers/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
-test: $(TEST_OBJS)
+test: $(TEST_OBJS) | $(BIN_DIR)
 	@if [ -z "$(TEST_SRCS)" ]; then echo "no tests"; exit 0; fi
 	@for t in $(TEST_SRCS); do \
 	  base=$$(basename $$t .c); \

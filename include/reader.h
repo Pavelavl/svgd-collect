@@ -17,4 +17,13 @@ typedef struct {
 /** CPU utilization reader: parses <proc_base>/stat, emits percent/active. */
 extern const reader_t cpu_reader;
 
+/** Load average reader: parses <proc_base>/loadavg, emits load (1/5/15-min). */
+extern const reader_t load_reader;
+
+/** Uptime reader: parses <proc_base>/uptime, emits uptime (seconds). */
+extern const reader_t uptime_reader;
+
+/** Memory reader: parses <proc_base>/meminfo, emits percent used/cached/buffered. */
+extern const reader_t memory_reader;
+
 #endif

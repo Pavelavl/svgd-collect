@@ -41,6 +41,8 @@ TEST(interface_emits_octets_packets_errors_for_eth0) {
         ASSERT_STR(captured[i].plugin, "interface");
         ASSERT_STR(captured[i].plugin_instance, "eth0");
         ASSERT(captured[i].ds_count == 2);
+        /* per-iface metrics carry no type_instance (no per-subpath split) */
+        ASSERT(captured[i].type_instance == NULL);
     }
     const metric_t *oct   = find("if_octets",  "eth0");
     const metric_t *pack  = find("if_packets", "eth0");

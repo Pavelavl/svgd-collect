@@ -17,7 +17,9 @@
  *
  * Partition lines (sda1, nvme0n1p1, ...) are filtered out — only whole disks
  * matching the regex ^(sd[a-z]+|nvme[0-9]+n[0-9]+|vd[a-z]+|mmcblk[0-9]+|
- * xvd[a-z]+)$ are kept. For each, three metrics are emitted
+ * xvd[a-z]+|dm-[0-9]+|md[0-9]+|loop[0-9]+|sr[0-9]+)$ are kept (this mirrors
+ * collectd's disk plugin, which by default also includes device-mapper,
+ * software RAID, loop, and optical devices). For each, three metrics are emitted
  * (plugin="disk", plugin_instance=<name>, ds_count=2), matching collectd's
  * disk plugin:
  *   type="disk_ops"    {reads_comp, writes_comp}
@@ -45,7 +47,7 @@ static int disk_read(const char *proc_base, metric_emit_fn emit, void *ud)
     static int re_ready = 0;
     if (!re_ready) {
         if (regcomp(&re,
-                    "^(sd[a-z]+|nvme[0-9]+n[0-9]+|vd[a-z]+|mmcblk[0-9]+|xvd[a-z]+)$",
+                    "^(sd[a-z]+|nvme[0-9]+n[0-9]+|vd[a-z]+|mmcblk[0-9]+|xvd[a-z]+|dm-[0-9]+|md[0-9]+|loop[0-9]+|sr[0-9]+)$",
                     REG_EXTENDED | REG_NOSUB) != 0) {
             fclose(f);
             return -1;

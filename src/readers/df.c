@@ -67,10 +67,12 @@ static void mount_to_instance(const char *mount, char *out, size_t outsz)
  * statvfs()-able are skipped. For each remaining mount two metrics are emitted
  * (plugin="df", plugin_instance=<mount-as-instance>, type="df_complex",
  * ds_count=1), matching collectd's df plugin:
- *   type_instance="used" value = (f_blocks - f_bavail) * f_frsize
- *   type_instance="free" value =  f_bavail          * f_frsize
- * (f_bavail = blocks available to unprivileged users; used therefore includes
- *  reserved-for-root space, as in collectd's default reporting.)
+ *   type_instance="used" value = (f_blocks - f_bfree) * f_frsize
+ *   type_instance="free" value =  f_bavail            * f_frsize
+ * (used counts only blocks holding data, not reserved-for-root space,
+ *  matching collectd's df_complex-used. collectd additionally emits
+ *  df_complex-reserved = (f_bfree - f_bavail) * f_frsize, which svgd-collect
+ *  does not produce. f_bavail = blocks available to unprivileged users.)
  *
  * @param proc_base prefix path (real /proc, or a fixture dir for tests).
  * @param emit      callback that receives the emitted metrics.
@@ -108,8 +110,8 @@ static int df_read(const char *proc_base, metric_emit_fn emit, void *ud)
             continue;
         }
 
-        /* used includes reserved blocks: total-avail-to-user */
-        unsigned long long used = (unsigned long long)(s.f_blocks - s.f_bavail)
+        /* used = data blocks only (reserved-for-root excluded), like collectd */
+        unsigned long long used = (unsigned long long)(s.f_blocks - s.f_bfree)
                                   * (unsigned long long)s.f_frsize;
         unsigned long long freeb = (unsigned long long)s.f_bavail
                                    * (unsigned long long)s.f_frsize;

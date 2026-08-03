@@ -1,0 +1,7 @@
+cpu  100 0 100 800 0 0 0 0 0 0
+cpu0 50 0 50 400 0 0 0 0 0 0
+intr 1234567890
+ctxt 123456780
+btime 1700000000
+processes 1000
+procs_running 1

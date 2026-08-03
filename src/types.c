@@ -3,23 +3,24 @@
 #include <stddef.h>
 #include <string.h>
 
-/* Per-type DS definitions. Names/DST must match collectd's types.db. */
+/* Per-type DS definitions. Names/DST verified against real collectd RRD output
+ * (see drop-in ground-truth in the readers plan). */
 static const ds_def_t ds_percent[]        = { {"value", DST_GAUGE} };
 static const ds_def_t ds_if_octets[]      = { {"rx", DST_DERIVE}, {"tx", DST_DERIVE} };
 static const ds_def_t ds_if_packets[]     = { {"rx", DST_DERIVE}, {"tx", DST_DERIVE} };
 static const ds_def_t ds_if_errors[]      = { {"rx", DST_DERIVE}, {"tx", DST_DERIVE} };
-static const ds_def_t ds_disk_ops[]       = { {"reads", DST_DERIVE}, {"writes", DST_DERIVE} };
+static const ds_def_t ds_disk_ops[]       = { {"read", DST_DERIVE}, {"write", DST_DERIVE} };
 static const ds_def_t ds_disk_octets[]    = { {"read", DST_DERIVE}, {"write", DST_DERIVE} };
 static const ds_def_t ds_disk_time[]      = { {"read", DST_DERIVE}, {"write", DST_DERIVE} };
 static const ds_def_t ds_ps_rss[]         = { {"value", DST_GAUGE} };
-static const ds_def_t ds_ps_cputime[]     = { {"value", DST_DERIVE} };
-static const ds_def_t ds_ps_count[]       = { {"processes", DST_GAUGE} };
+static const ds_def_t ds_ps_cputime[]     = { {"user", DST_DERIVE}, {"syst", DST_DERIVE} };
+static const ds_def_t ds_ps_count[]       = { {"processes", DST_GAUGE}, {"threads", DST_GAUGE} };
 static const ds_def_t ds_df_complex[]     = { {"value", DST_GAUGE} };
 static const ds_def_t ds_load[]           = { {"shortterm", DST_GAUGE},
                                               {"midterm", DST_GAUGE},
                                               {"longterm", DST_GAUGE} };
 static const ds_def_t ds_uptime[]         = { {"value", DST_GAUGE} };
-static const ds_def_t ds_swap[]           = { {"used", DST_GAUGE}, {"free", DST_GAUGE} };
+static const ds_def_t ds_swap[]           = { {"value", DST_GAUGE} };
 static const ds_def_t ds_temperature[]    = { {"value", DST_GAUGE} };
 static const ds_def_t ds_tcp_connections[] = { {"value", DST_GAUGE} };
 
@@ -32,12 +33,12 @@ static const type_def_t TABLE[] = {
     {"disk_octets",     ds_disk_octets,     2},
     {"disk_time",       ds_disk_time,       2},
     {"ps_rss",          ds_ps_rss,          1},
-    {"ps_cputime",      ds_ps_cputime,      1},
-    {"ps_count",        ds_ps_count,        1},
+    {"ps_cputime",      ds_ps_cputime,      2},
+    {"ps_count",        ds_ps_count,        2},
     {"df_complex",      ds_df_complex,      1},
     {"load",            ds_load,            3},
     {"uptime",          ds_uptime,          1},
-    {"swap",            ds_swap,            2},
+    {"swap",            ds_swap,            1},
     {"temperature",     ds_temperature,     1},
     {"tcp_connections", ds_tcp_connections, 1},
 };

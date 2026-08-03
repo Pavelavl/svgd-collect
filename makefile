@@ -1,6 +1,6 @@
 CC      = gcc
 CFLAGS  = -Wall -Wextra -O2 -g -Iinclude
-LDLIBS  = -lrrd
+LDLIBS  = -lrrd -lm
 BIN_DIR = bin
 
 SRCS      = $(wildcard src/*.c) $(wildcard src/readers/*.c)

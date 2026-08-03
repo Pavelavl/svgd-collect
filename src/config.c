@@ -39,6 +39,12 @@ int config_load(collect_config_t *c, const char *path) {
     size_t rd = fread(buf, 1, (size_t)sz, f); buf[rd] = '\0'; fclose(f);
 
     c->interval = extract_int(buf, "\"interval\"", c->interval);
+    /* Clamp: atoi can yield 0 (garbage/missing value) or negatives (e.g. "-1"),
+     * either of which makes collect.c's sleep(loop) busy-loop. Fall back to the
+     * default 5s. */
+    if (c->interval < 1) {
+        c->interval = 5;
+    }
     extract_string(buf, "\"datadir\"", c->datadir, sizeof c->datadir);
     extract_string(buf, "\"hostname\"", c->host, sizeof c->host);
     extract_string(buf, "\"rrdcached_addr\"", c->rrdcached, sizeof c->rrdcached);

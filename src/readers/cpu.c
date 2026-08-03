@@ -62,7 +62,9 @@ static int cpu_read(const char *proc_base, metric_emit_fn emit, void *ud)
         double pct = 100.0 * (double)(busy - prev_busy) / (double)(total - prev_total);
         metric_t m;
         m.plugin         = "cpu";
-        m.plugin_instance = NULL;
+        /* plugin_instance="total" matches collectd's cpu aggregation: svgd reads
+         * cpu-total/percent-active.rrd, so the path MUST be cpu-total/, not cpu/. */
+        m.plugin_instance = "total";
         m.type           = "percent";
         m.type_instance  = "active";
         m.ds_count       = 1;

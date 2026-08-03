@@ -1,6 +1,7 @@
 /** @file rra.c @brief build DS+RRA argv for rrd_create_r, matching collectd's RRATimespan logic */
 #include "rra.h"
 #include <stdio.h>
+#include <math.h>
 
 /* Constants — must match collectd's RRATimespan RRA generation (drop-in compatible). */
 #define STEP 5                       /**< rrd step, seconds */
@@ -51,13 +52,38 @@ int rra_args(const type_def_t *td, char **argv, int argv_max)
         remaining -= (size_t)len + 1;
     }
 
-    /* RRA entries: one per timespan, replicating collectd's RRATimespan consolidation. */
+    /* RRA entries: one AVERAGE RRA per timespan, replicating collectd's
+     * rra_get() consolidation logic EXACTLY (src/utils/rrdcreate/rrdcreate.c).
+     *
+     * We emit AVERAGE only: svgd's reader (src/rrd/svg.c → rrd_fetch_data) always
+     * asks librrd for the AVERAGE CF, so MIN/MAX RRAs would be invisible to it.
+     * collectd normally also emits MIN/MAX, but omitting them wastes no work that
+     * svgd consumes — this is the intentional drop-in simplification.
+     *
+     * Variable names mirror collectd: cdp_len == pdp_per_row, cdp_num == rows. */
+    long cdp_len = 0;
     for (int t = 0; t < NTIMESPANS; t++) {
         long span = TIMESPANS[t];
-        long denom = (long)STEP * RRAROWS;          /* = 12000 */
-        long pdp = (span + denom - 1) / denom;       /* ceil_div(span, denom) */
-        long rows = span / ((long)STEP * pdp);       /* integer division */
-        int len = snprintf(p, remaining, "RRA:AVERAGE:%s:%ld:%ld", XFF, pdp, rows);
+
+        /* collectd: if (span / ss) < rrarows, grow span to ss*rrarows so even the
+         * shortest timespan still yields rrarows rows at pdp_per_row=1. */
+        if ((span / (long)STEP) < RRAROWS) {
+            span = (long)STEP * RRAROWS;
+        }
+
+        /* First iteration keeps cdp_len=1; later iterations consolidate so the
+         * row count stays near rrarows. */
+        if (cdp_len == 0) {
+            cdp_len = 1;
+        } else {
+            cdp_len = (long)floor((double)span / (double)(RRAROWS * (long)STEP));
+        }
+        long cdp_num = (long)ceil((double)span / (double)(cdp_len * (long)STEP));
+
+        int len = snprintf(p, remaining, "RRA:AVERAGE:%s:%ld:%ld", XFF, cdp_len, cdp_num);
+        if (len < 0 || (size_t)len >= remaining) {
+            return -1;   /* backing buffer exhausted */
+        }
         argv[i++] = p;
         p += len + 1;
         remaining -= (size_t)len + 1;

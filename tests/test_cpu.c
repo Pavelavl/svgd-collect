@@ -12,6 +12,10 @@ TEST(cpu_percent_delta) {
     ASSERT(cpu_reader.read("tests/fixtures/proc2", cap_cb, NULL) == 0);
     ASSERT(cap_count == 1);
     ASSERT_STR(captured.plugin, "cpu");
+    /* drop-in: collectd cpu aggregation sets plugin_instance="total", so svgd
+     * reads cpu-total/percent-active.rrd. Must NOT be NULL. */
+    ASSERT(captured.plugin_instance != NULL);
+    ASSERT_STR(captured.plugin_instance, "total");
     ASSERT_STR(captured.type, "percent");
     ASSERT_STR(captured.type_instance, "active");
     ASSERT(captured.ds_count == 1);

@@ -9,6 +9,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 int writer_init(writer_t *w, const char *datadir, const char *host, const char *rrdcached)
 {
@@ -29,7 +30,10 @@ int writer_init(writer_t *w, const char *datadir, const char *host, const char *
     return 0;
 }
 
-/** Create all intermediate dirs in @p dir, ignoring EEXIST. */
+/** Create all intermediate dirs in @p dir, ignoring EEXIST. Other mkdir errors
+ *  (EACCES, EROFS, ENAMETOOLONG, ...) are logged to stderr instead of being
+ *  swallowed silently — a silent failure here would later surface as a confusing
+ *  rrd_create/rrd_update error. */
 static void mkdirp(const char *dir)
 {
     char tmp[4096];
@@ -42,25 +46,35 @@ static void mkdirp(const char *dir)
     for (size_t i = 1; i < len; i++) {
         if (tmp[i] == '/') {
             tmp[i] = '\0';
-            (void)mkdir(tmp, 0755);
+            if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
+                fprintf(stderr, "mkdirp(%s): %s\n", tmp, strerror(errno));
+            }
             tmp[i] = '/';
         }
     }
-    (void)mkdir(tmp, 0755);
+    if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
+        fprintf(stderr, "mkdirp(%s): %s\n", tmp, strerror(errno));
+    }
 }
 
-int fmt_values(char *out, size_t n, const metric_t *m)
+int fmt_values(char *out, size_t n, const type_def_t *td, const metric_t *m)
 {
-    if (out == NULL || m == NULL || n == 0) {
+    if (out == NULL || m == NULL || td == NULL || n == 0) {
         return -1;
     }
-    /* Build "N:v1:v2..." using %.17g — round-trip-safe for double. Unlike %.6g,
-     * this never emits scientific notation for large DERIVE/COUNTER values
-     * (e.g. 1234567890 stays intact instead of becoming 1.23457e+09). */
+    if (td->ds_count != m->ds_count) {
+        return -1;
+    }
+    /* Build "N:v1:v2...". Per-DST format: DERIVE/COUNTER raw counters are integers
+     * from /proc and can reach ~1.8e19 (UINT64_MAX-ish); %.0f keeps them in plain
+     * decimal (no 'e'), whereas %.17g switches to scientific at >=1e17 and would be
+     * rejected by rrd_update. GAUGE values use %.17g for round-trip safety. */
     size_t off = 0;
     out[off++] = 'N';
     for (int i = 0; i < m->ds_count; i++) {
-        int wlen = snprintf(out + off, n - off, ":%.17g", m->values[i]);
+        dst_t dst = (i < td->ds_count) ? td->ds[i].dst : DST_GAUGE;
+        const char *fmt = (dst == DST_DERIVE || dst == DST_COUNTER) ? ":%.0f" : ":%.17g";
+        int wlen = snprintf(out + off, n - off, fmt, m->values[i]);
         if (wlen < 0 || (size_t)wlen >= n - off) {
             return -1;   /* encoding error or truncation */
         }
@@ -108,7 +122,10 @@ int writer_write(writer_t *w, const metric_t *m)
         if (n < 0) {
             return -1;
         }
-        if (rrd_create_r(path, 5 /*step*/, time(NULL) /*last_up*/, n, (const char **)argv) != 0) {
+        /* last_up = now-1 (collectd does last_up -= 1): a same-second create+update
+         * otherwise gets rejected by librrd as "illegal attempt to update using an
+         * time older than the last update" / older-than-step edge cases. */
+        if (rrd_create_r(path, 5 /*step*/, time(NULL) - 1 /*last_up*/, n, (const char **)argv) != 0) {
             fprintf(stderr, "rrd_create_r(%s): %s\n", path, rrd_get_error());
             rrd_clear_error();
             return -1;
@@ -117,7 +134,7 @@ int writer_write(writer_t *w, const metric_t *m)
 
     /* 5. Build "N:v1:v2..." and update. */
     char vbuf[256];
-    if (fmt_values(vbuf, sizeof vbuf, m) != 0) {
+    if (fmt_values(vbuf, sizeof vbuf, td, m) != 0) {
         return -1;
     }
 

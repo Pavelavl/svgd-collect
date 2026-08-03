@@ -10,7 +10,7 @@ PID=$!
 sleep 7
 kill -TERM $PID 2>/dev/null || true
 wait $PID 2>/dev/null || true
-F="$D/rrd/testhost/cpu/percent-active.rrd"
+F="$D/rrd/testhost/cpu-total/percent-active.rrd"
 if [ ! -f "$F" ]; then echo "FAIL: drop-in RRD not created at $F"; rm -rf "$D"; exit 1; fi
 rrdtool fetch "$F" AVERAGE --start -120 --end now >/dev/null 2>&1 || { echo "FAIL: rrdtool fetch failed"; rm -rf "$D"; exit 1; }
 echo "PASS: drop-in RRD created and fetchable at $F"

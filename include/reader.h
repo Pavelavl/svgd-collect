@@ -26,4 +26,13 @@ extern const reader_t uptime_reader;
 /** Memory reader: parses <proc_base>/meminfo, emits percent used/cached/buffered. */
 extern const reader_t memory_reader;
 
+/** Swap reader: parses <proc_base>/meminfo, emits swap used/free (bytes). */
+extern const reader_t swap_reader;
+
+/** Interface reader: parses <proc_base>/net/dev, emits rx/tx octets/packets/errors. */
+extern const reader_t interface_reader;
+
+/** Disk reader: parses <proc_base>/diskstats, emits ops/octets/time per real disk. */
+extern const reader_t disk_reader;
+
 #endif

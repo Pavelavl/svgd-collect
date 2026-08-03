@@ -1,0 +1,69 @@
+# Standalone CI for svgd-collect.
+# This repository is a separate git project (github.com/Pavelavl/svgd-collect);
+# the parent svgd repo's workflow builds only svgd + svgd-gate and does NOT
+# exercise svgd-collect, so this workflow is the sole automated gate for the
+# collector. It runs the full local matrix: build, 17 unit tests (fixture-based,
+# fully deterministic), and the three integration suites (drop-in /proc RRDs,
+# rrdcached routing + fallback, Prometheus /metrics exposition).
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+# Cancel superseded runs on the same ref so force-pushes / rapid PR commits
+# don't burn runner minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        # No submodules: svgd-collect is self-contained (no lsrp dependency).
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            librrd-dev \
+            rrdtool \
+            rrdcached \
+            gcc \
+            make \
+            curl \
+            prometheus
+          # librrd-dev  - writer_rrd.c (rrd_create_r / rrd_update_r)
+          # rrdtool     - integration assertions (rrdtool fetch)
+          # rrdcached   - optional routing integration (script skips if absent)
+          # curl        - /metrics integration probes
+          # prometheus  - provides promtool for exposition-format validation
+          #               (integration_metrics.sh skips promtool if not installed)
+
+      - name: Build
+        run: make build
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: svgd-collect-linux-x86_64
+          path: bin/svgd-collect
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Unit tests
+        run: make test
+
+      - name: Integration (drop-in /proc RRDs)
+        run: make test-integration
+
+      - name: Integration (rrdcached routing + fallback)
+        run: make test-integration-rrdcached
+
+      - name: Integration (Prometheus /metrics)
+        run: make test-integration-metrics

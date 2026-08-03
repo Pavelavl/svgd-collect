@@ -3,6 +3,7 @@
 A lightweight system metrics collector that writes RRD files (drop-in compatible with collectd).
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+![CI](https://github.com/Pavelavl/svgd-collect/actions/workflows/ci.yml/badge.svg)
 
 A small, self-contained C collector (~2k lines) in the spirit of svgd's "extreme efficiency" brand.
 

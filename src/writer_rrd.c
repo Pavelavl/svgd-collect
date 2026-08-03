@@ -6,6 +6,7 @@
 #include <rrd.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -48,6 +49,26 @@ static void mkdirp(const char *dir)
     (void)mkdir(tmp, 0755);
 }
 
+int fmt_values(char *out, size_t n, const metric_t *m)
+{
+    if (out == NULL || m == NULL || n == 0) {
+        return -1;
+    }
+    /* Build "N:v1:v2..." using %.17g — round-trip-safe for double. Unlike %.6g,
+     * this never emits scientific notation for large DERIVE/COUNTER values
+     * (e.g. 1234567890 stays intact instead of becoming 1.23457e+09). */
+    size_t off = 0;
+    out[off++] = 'N';
+    for (int i = 0; i < m->ds_count; i++) {
+        int wlen = snprintf(out + off, n - off, ":%.17g", m->values[i]);
+        if (wlen < 0 || (size_t)wlen >= n - off) {
+            return -1;   /* encoding error or truncation */
+        }
+        off += (size_t)wlen;
+    }
+    return 0;
+}
+
 int writer_write(writer_t *w, const metric_t *m)
 {
     if (w == NULL || m == NULL) {
@@ -87,7 +108,7 @@ int writer_write(writer_t *w, const metric_t *m)
         if (n < 0) {
             return -1;
         }
-        if (rrd_create_r(path, 5 /*step*/, 0 /*last_up*/, n, (const char **)argv) != 0) {
+        if (rrd_create_r(path, 5 /*step*/, time(NULL) /*last_up*/, n, (const char **)argv) != 0) {
             fprintf(stderr, "rrd_create_r(%s): %s\n", path, rrd_get_error());
             rrd_clear_error();
             return -1;
@@ -96,14 +117,8 @@ int writer_write(writer_t *w, const metric_t *m)
 
     /* 5. Build "N:v1:v2..." and update. */
     char vbuf[256];
-    size_t off = 0;
-    vbuf[off++] = 'N';
-    for (int i = 0; i < m->ds_count; i++) {
-        int wlen = snprintf(vbuf + off, sizeof(vbuf) - off, ":%.6g", m->values[i]);
-        if (wlen < 0 || (size_t)wlen >= sizeof(vbuf) - off) {
-            return -1;   /* encoding error or truncation */
-        }
-        off += (size_t)wlen;
+    if (fmt_values(vbuf, sizeof vbuf, m) != 0) {
+        return -1;
     }
 
     const char *uargv[1] = { vbuf };

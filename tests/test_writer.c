@@ -22,4 +22,15 @@ TEST(write_then_fetch) {
     ASSERT_STR(ds_names[0], "value");
     rrd_freemem(ds_names); rrd_freemem(data);
 }
-TEST_MAIN() RUN(write_then_fetch); TEST_RETURN()
+TEST(fmt_values_precision) {
+    /* if_octets is a DERIVE ds_count=2 metric; large counters (1e9+) must
+     * survive formatting without scientific notation or precision loss. */
+    metric_t m = {"interface", "eth0", "if_octets", "rx", 2, {1234567890.0, 9876543210.0}};
+    char buf[256];
+    ASSERT(fmt_values(buf, sizeof buf, &m) == 0);
+    ASSERT(strstr(buf, "1234567890") != NULL);
+    ASSERT(strstr(buf, "9876543210") != NULL);
+    ASSERT(strchr(buf, 'e') == NULL);
+    ASSERT(strchr(buf, 'E') == NULL);
+}
+TEST_MAIN() RUN(write_then_fetch); RUN(fmt_values_precision); TEST_RETURN()

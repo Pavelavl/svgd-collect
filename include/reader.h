@@ -41,4 +41,10 @@ extern const reader_t df_reader;
 /** Processes reader: aggregates <proc_base>/[pid] by comm into ps_rss/cputime/count. */
 extern const reader_t processes_reader;
 
+/** Thermal reader: reads <sys>/class/thermal/thermal_zoneN/temp, emits degrees C. */
+extern const reader_t thermal_reader;
+
+/** TCP connections reader: counts socket states from <proc_base>/net/tcp{,6}. */
+extern const reader_t tcpconns_reader;
+
 #endif

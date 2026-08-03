@@ -3,7 +3,9 @@
 #include "types.h"
 #include "path.h"
 #include "rra.h"
+#include "log.h"
 #include <rrd.h>
+#include <rrd_client.h>   /* rrdc_* — rrdcached client API (optional daemon routing) */
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -83,6 +85,72 @@ int fmt_values(char *out, size_t n, const type_def_t *td, const metric_t *m)
     return 0;
 }
 
+/** Ensure we are connected to the configured rrdcached daemon.
+ *  Returns 0 if connected, or if no daemon is configured (direct-write mode).
+ *  Returns -1 if a daemon is configured but unreachable. Idempotent: rrdc_connect
+ *  + the librrd-global connection make repeated calls cheap. */
+static int writer_daemon_connect(writer_t *w)
+{
+    if (w->rrdcached[0] == '\0') {
+        return 0;                       /* direct-write mode: no daemon */
+    }
+    if (rrdc_is_connected(w->rrdcached)) {
+        return 0;                       /* already connected */
+    }
+    if (rrdc_connect(w->rrdcached) != 0) {
+        log_err("writer", "rrdc_connect(%s): %s", w->rrdcached, rrd_get_error());
+        rrd_clear_error();
+        return -1;
+    }
+    return 0;
+}
+
+/** Route one update through rrdcached when configured, else direct librrd.
+ *
+ *  RRD *creation* stays direct (rrd_create_r above) even with a daemon: the file
+ *  must already exist for rrdcached to accept an update for it (the daemon does
+ *  not create files), and creating it client-side gives a strong existence
+ *  guarantee without a daemon round-trip on the one-time create. Only the hot
+ *  path (updates) is routed through the daemon.
+ *
+ *  If the daemon is configured but unreachable or returns an error, we fall back
+ *  to a direct rrd_update_r so a transient daemon outage does not lose samples.
+ *  Returns 0 on success, -1 on error. */
+static int writer_update(writer_t *w, const char *path, const char *values)
+{
+    const char *uargv[1] = { values };
+
+    if (w->rrdcached[0] != '\0' && writer_daemon_connect(w) == 0) {
+        int rc = rrdc_update(path, 1, uargv);
+        if (rc == 0) {
+            return 0;
+        }
+        log_err("writer", "rrdc_update(%s): %s; falling back to direct update",
+                path, rrd_get_error());
+        rrd_clear_error();
+    }
+
+    int rc = rrd_update_r(path, NULL, 1, uargv);
+    if (rc != 0) {
+        log_err("writer", "rrd_update_r(%s): %s", path, rrd_get_error());
+        rrd_clear_error();
+    }
+    return rc;
+}
+
+void writer_shutdown(writer_t *w)
+{
+    if (w->rrdcached[0] != '\0' && rrdc_is_connected(w->rrdcached)) {
+        /* Flush every pending write through the daemon so updates written but
+         * not yet persisted to disk survive the process exit. */
+        if (rrdc_flushall() != 0) {
+            log_err("writer", "rrdc_flushall: %s", rrd_get_error());
+            rrd_clear_error();
+        }
+        rrdc_disconnect();
+    }
+}
+
 int writer_write(writer_t *w, const metric_t *m)
 {
     if (w == NULL || m == NULL) {
@@ -92,7 +160,7 @@ int writer_write(writer_t *w, const metric_t *m)
     /* 1. Resolve the type; verify the DS count matches the values we carry. */
     const type_def_t *td = types_lookup(m->type);
     if (td == NULL || td->ds_count != m->ds_count) {
-        fprintf(stderr, "writer_write: type '%s' ds_count mismatch\n",
+        log_err("writer", "type '%s' ds_count mismatch",
                 m->type ? m->type : "(null)");
         return -1;
     }
@@ -126,23 +194,17 @@ int writer_write(writer_t *w, const metric_t *m)
          * otherwise gets rejected by librrd as "illegal attempt to update using an
          * time older than the last update" / older-than-step edge cases. */
         if (rrd_create_r(path, 5 /*step*/, time(NULL) - 1 /*last_up*/, n, (const char **)argv) != 0) {
-            fprintf(stderr, "rrd_create_r(%s): %s\n", path, rrd_get_error());
+            log_err("writer", "rrd_create_r(%s): %s", path, rrd_get_error());
             rrd_clear_error();
             return -1;
         }
     }
 
-    /* 5. Build "N:v1:v2..." and update. */
+    /* 5. Build "N:v1:v2..." and update (via rrdcached when configured). */
     char vbuf[256];
     if (fmt_values(vbuf, sizeof vbuf, td, m) != 0) {
         return -1;
     }
 
-    const char *uargv[1] = { vbuf };
-    int rc = rrd_update_r(path, NULL, 1, uargv);
-    if (rc != 0) {
-        fprintf(stderr, "rrd_update_r(%s): %s\n", path, rrd_get_error());
-        rrd_clear_error();
-    }
-    return rc;
+    return writer_update(w, path, vbuf);
 }

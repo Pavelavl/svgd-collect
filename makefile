@@ -8,7 +8,7 @@ OBJS      = $(SRCS:.c=.o)
 TEST_OBJS = $(filter-out src/main.o src/collect.o, $(OBJS))
 TEST_SRCS = $(wildcard tests/test_*.c)
 
-.PHONY: all build test clean test-integration
+.PHONY: all build test clean test-integration test-integration-rrdcached
 all: build
 build: $(BIN_DIR)/svgd-collect
 $(BIN_DIR)/svgd-collect: $(OBJS) | $(BIN_DIR)
@@ -32,3 +32,6 @@ clean:
 .PHONY: test-integration
 test-integration: build
 	@sh tests/integration.sh
+.PHONY: test-integration-rrdcached
+test-integration-rrdcached: build
+	@sh tests/integration_rrdcached.sh

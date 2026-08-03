@@ -7,11 +7,14 @@
 typedef struct {
     char datadir[4096];
     char host[128];
-    char rrdcached[256];   /* parsed but UNUSED in Phase 1 (direct librrd only) */
+    char rrdcached[256];   /* daemon address; empty -> direct librrd writes */
 } writer_t;
 int writer_init(writer_t *w, const char *datadir, const char *host, const char *rrdcached);
 /** Resolve type, build path, create RRD if missing, update. Returns 0 on success, -1 on error. */
 int writer_write(writer_t *w, const metric_t *m);
+/** Flush + disconnect rrdcached if connected. No-op when no daemon is configured.
+ *  Call once on graceful shutdown so buffered updates are durable. */
+void writer_shutdown(writer_t *w);
 /** Build an RRD update timestamp:value string "N:v1:v2..." into @p out. Precision is
  *  chosen per-DS from @p td: DERIVE/COUNTER use %.0f (raw /proc counters are integers;
  *  this stays decimal up to ~1.8e19 and avoids the scientific notation %.17g emits at

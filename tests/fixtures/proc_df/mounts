@@ -1,0 +1,4 @@
+rootfs / root rw 0 0
+none /proc proc rw 0 0
+tmpfs /tmp tmpfs rw 0 0
+/dev/sda1 /mnt/nonexistent_disk ext4 rw 0 0

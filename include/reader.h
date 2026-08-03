@@ -35,4 +35,10 @@ extern const reader_t interface_reader;
 /** Disk reader: parses <proc_base>/diskstats, emits ops/octets/time per real disk. */
 extern const reader_t disk_reader;
 
+/** DF reader: parses <proc_base>/mounts, emits per-mount df_complex used/free. */
+extern const reader_t df_reader;
+
+/** Processes reader: aggregates <proc_base>/[pid] by comm into ps_rss/cputime/count. */
+extern const reader_t processes_reader;
+
 #endif

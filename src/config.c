@@ -29,6 +29,7 @@ int config_load(collect_config_t *c, const char *path) {
     snprintf(c->datadir, sizeof c->datadir, "%s", "/var/lib/svgd-collect/rrd");
     snprintf(c->host, sizeof c->host, "%s", "localhost");
     c->rrdcached[0] = '\0';
+    c->metrics_addr[0] = '\0';     /* opt-in: no listener unless configured */
     c->readers_count = 0;
     FILE *f = fopen(path, "r");
     if (!f) return -1;
@@ -48,6 +49,7 @@ int config_load(collect_config_t *c, const char *path) {
     extract_string(buf, "\"datadir\"", c->datadir, sizeof c->datadir);
     extract_string(buf, "\"hostname\"", c->host, sizeof c->host);
     extract_string(buf, "\"rrdcached_addr\"", c->rrdcached, sizeof c->rrdcached);
+    extract_string(buf, "\"metrics_addr\"", c->metrics_addr, sizeof c->metrics_addr);
 
     const char *rp = strstr(buf, "\"readers\"");
     if (rp) {

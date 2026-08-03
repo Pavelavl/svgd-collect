@@ -3,6 +3,7 @@
   "datadir": "/tmp/collect-test",
   "hostname": "web1",
   "rrdcached_addr": "unix:/run/rrdcached.sock",
+  "metrics_addr": "127.0.0.1:9103",
   "readers": ["cpu", "memory"],
   "options": { "ignored": true }
 }

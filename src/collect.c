@@ -3,6 +3,7 @@
 #include "writer_rrd.h"
 #include "registry.h"
 #include "metric.h"
+#include "prom.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
@@ -11,7 +12,12 @@
 extern volatile sig_atomic_t g_running;   /* defined in main.c */
 
 static int emit_cb(const metric_t *m, void *ud) {
-    return writer_write((writer_t *)ud, m);
+    int rc = writer_write((writer_t *)ud, m);
+    /* Tee into the Prometheus snapshot so the /metrics endpoint serves the
+     * freshest collected values. Never affects the writer's result; failure to
+     * snapshot is non-fatal (best-effort). */
+    prom_snapshot_add(m);
+    return rc;
 }
 
 void collect_run(collect_config_t *cfg) {
@@ -30,6 +36,11 @@ void collect_run(collect_config_t *cfg) {
     int n = collect_build_enabled(rptr, cfg->readers_count, enabled, 32);
 
     while (g_running) {
+        /* Reset the staging buffer, then run every enabled reader; each emitted
+         * metric flows to BOTH the RRD writer (emit_cb) and the prom snapshot
+         * (tee inside emit_cb). After all readers, publish the staged snapshot
+         * atomically so the /metrics thread can serve this interval's values. */
+        prom_snapshot_begin();
         /* A reader returns -1 on a missing /proc file or parse error and logs
          * the specifics itself; the return value is intentionally ignored here
          * so a transient per-reader failure doesn't abort the whole loop, and
@@ -37,6 +48,7 @@ void collect_run(collect_config_t *cfg) {
         for (int i = 0; i < n; i++) {
             (void)enabled[i]->read("/proc", emit_cb, &w);
         }
+        prom_snapshot_publish();
         /* interruptible sleep: wake each second to re-check g_running */
         for (int s = 0; s < cfg->interval && g_running; s++) {
             sleep(1);
